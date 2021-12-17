@@ -1,0 +1,54 @@
+package org.usfirst.frc.team6498.robot;
+
+import edu.wpi.first.wpilibj.ADXRS450_Gyro;
+import edu.wpi.first.wpilibj.DigitalInput;
+import edu.wpi.first.wpilibj.Encoder;
+import edu.wpi.first.wpilibj.RobotDrive;
+
+public class CounterClockWiseTarget {
+  double encoderPulsesToTarget=914;	
+  
+  String counterClockWiseTarget(String _tapeState,RobotDrive _myRobot,DigitalInput _ReflectiveL,
+		  DigitalInput _ReflectiveR,ADXRS450_Gyro _gyro, Encoder _encoder){
+	System.out.println("Tape State: "+_tapeState);
+	switch(_tapeState){
+	case "noneSeen":
+		//turn counterclockwise at .45 speed and search for one tape
+		_myRobot.tankDrive(.5, -.5);
+		if(_ReflectiveL.get()){
+			_myRobot.tankDrive(.4, -.4);
+			_tapeState="oneSeen";
+		}
+    break;		
+	
+	case "oneSeen":
+		//turn counterclockwise at .4 speed after one tape seen
+		if(_ReflectiveL.get()&&_ReflectiveR.get()){
+			_myRobot.tankDrive(0, 0);
+			_tapeState="twoSeen";
+		}
+	break;	
+	
+	case "twoSeen":
+		//stops robot and resets gyro
+		_myRobot.tankDrive(0,0);
+		_gyro.reset();
+		_encoder.reset();
+		_tapeState="deliver";
+	break;	
+	
+	case "deliver":
+		//drives Robot forward continuous
+		System.out.println(Math.abs(_encoder.get()));
+		if(Math.abs(_encoder.get())<encoderPulsesToTarget){
+			double angle = _gyro.getAngle();
+		    _myRobot.drive(-.4, -angle*.03);
+		}
+		else{
+			_myRobot.drive(0, 0);
+	    }
+    break;
+	}
+	return _tapeState;
+  }
+}

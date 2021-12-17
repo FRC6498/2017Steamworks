@@ -1,0 +1,179 @@
+package org.usfirst.frc.team6498.robot;
+
+import edu.wpi.cscore.UsbCamera;
+import edu.wpi.first.wpilibj.ADXRS450_Gyro;
+import edu.wpi.first.wpilibj.BuiltInAccelerometer;
+import edu.wpi.first.wpilibj.CameraServer;
+import edu.wpi.first.wpilibj.DigitalInput;
+import edu.wpi.first.wpilibj.Encoder;
+import edu.wpi.first.wpilibj.IterativeRobot;
+import edu.wpi.first.wpilibj.Joystick;
+import edu.wpi.first.wpilibj.RobotDrive;
+import edu.wpi.first.wpilibj.Spark;
+import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj.interfaces.Accelerometer;
+import edu.wpi.first.wpilibj.livewindow.LiveWindow;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
+
+/**
+ * The VM is configured to automatically run this class, and to call the
+ * functions corresponding to each mode, as described in the IterativeRobot
+ * documentation. If you change the name of this class or the package after
+ * creating this project, you must also update the manifest file in the resource
+ * directory.
+ */
+public class Robot extends IterativeRobot {
+	
+	Spark frontLeftMotor = new Spark(0);
+	Spark rearLeftMotor = new Spark(1);
+	Spark frontRightMotor = new Spark(2);
+	Spark rearRightMotor = new Spark(3);
+	
+	Spark climber = new Spark(4);
+	
+	RobotDrive myRobot = new RobotDrive(frontLeftMotor, rearLeftMotor, 
+			                            frontRightMotor, rearRightMotor);
+	Joystick stick = new Joystick(0);
+	Timer timer = new Timer();
+	Accelerometer onBoardAccel;
+		
+	/* type variables for autonomous mode */
+	String stateAutonomuos = "EncoderGyroDriveStraight";
+	final ADXRS450_Gyro gyro = new ADXRS450_Gyro();
+	
+	Encoder encoder = new Encoder(0,1,true, Encoder.EncodingType.k2X);
+	double straightEncoderPulses2X = 1737;	
+
+ 	String tapeState ="noneSeen";
+    
+	static DigitalInput ReflectiveR = new DigitalInput(2);
+    static DigitalInput ReflectiveL = new DigitalInput(3);
+ 
+    CounterClockWiseTarget findTarget = new CounterClockWiseTarget();
+	/**
+	 * This function is run when the robot is first started up and should be
+	 * used for any initialization code.
+	 */
+	@Override
+	public void robotInit() {
+		System.out.println("robot init ----- ");
+		UsbCamera camera0 = CameraServer.getInstance().startAutomaticCapture();
+		UsbCamera camera1 = CameraServer.getInstance().startAutomaticCapture();
+		onBoardAccel = new BuiltInAccelerometer(Accelerometer.Range.k2G);
+		camera0.setResolution(640, 480);
+		camera1.setResolution(640, 480);
+		gyro.calibrate();
+		gyro.reset();
+	}
+
+	/**
+	 * This function is run once each time the robot enters autonomous mode
+	 */
+	@Override
+	public void autonomousInit() {
+		System.out.println("autonomous init");
+		/*
+    	encoder.setMaxPeriod(.1);
+    	encoder.setMinRate(10);
+    	encoder.setDistancePerPulse(5);
+    	encoder.setReverseDirection(false);
+    	encoder.setSamplesToAverage(7);
+    	*/
+		
+		myRobot.setSafetyEnabled(false);
+    	encoder.reset(); 
+    	gyro.reset();
+    	    	
+	}
+
+	/**
+	 * This function is called periodically during autonomous
+	 */
+	@Override
+	public void autonomousPeriodic() {
+		switch(stateAutonomuos){
+		    case "EncoderGyroDriveStraight":
+		       	if(Math.abs(encoder.get()) < straightEncoderPulses2X){
+		    	    double angle = gyro.getAngle();
+		    	    myRobot.drive(-.5, -angle*.03);
+		    	    System.out.println(Math.abs(encoder.get()));
+		    	    
+		    	}else{
+		    		
+		    		System.out.println(encoder.get() + " EncoderGyroDriveStraight");
+		    		myRobot.drive(0, 0);
+		    		stateAutonomuos = "GyroTurnToTarget";
+		    		//System.out.println("Drift Value:  "+(encoder.get()-numberPulses2X));
+		    		gyro.reset();
+		    	} 
+		    	break;
+		    case "GyroTurnToTarget":
+		    	tapeState =findTarget.counterClockWiseTarget(tapeState, myRobot, ReflectiveL, ReflectiveR, gyro, encoder);
+		        break;
+		    }
+		}
+
+
+	/**
+	 * This function is called once each time the robot enters tele-operated
+	 * mode
+	 */
+	@Override
+	public void teleopInit() {
+		myRobot.setSafetyEnabled(true);
+	}
+
+	/**
+	 * This function is called periodically during operator control
+	 */
+	@Override
+	public void teleopPeriodic() {
+		
+		myRobot.arcadeDrive(stick);
+		//System.out.println(encoder.get());
+	}
+
+	/**
+	 * This function is called periodically during test mode
+	 */
+	@Override
+	public void testPeriodic() {
+		//System.out.println("test periodic");
+		myRobot.setSafetyEnabled(true);
+		LiveWindow.run();
+		
+		if(SmartDashboard.getBoolean("DB/Button 0", false)){
+			SmartDashboard.putBoolean("DB/LED 0", true);
+			//System.out.println("Tape seen: "+tapeState);
+			
+			tapeState =findTarget.counterClockWiseTarget(tapeState, myRobot, ReflectiveL, ReflectiveR, gyro, encoder);
+			
+	
+		}else{
+			SmartDashboard.putBoolean("DB/LED 0", false);
+		}
+	
+		if (ReflectiveL.get()==true){
+			SmartDashboard.putBoolean("DB/LED 1", true);
+		}else{
+			SmartDashboard.putBoolean("DB/LED 1", false);
+		}
+		if (ReflectiveR.get()==true){
+			SmartDashboard.putBoolean("DB/LED 2", true);
+		}else{
+			SmartDashboard.putBoolean("DB/LED 2", false);
+		} 
+		if(SmartDashboard.getBoolean("DB/Button 3", false)){
+			SmartDashboard.putBoolean("DB/LED 3", true);
+			climber.setSpeed(1);
+		}
+		else{
+			climber.setSpeed(0);
+			}
+			
+		if(SmartDashboard.getBoolean("DB/Button 1", false)){
+			tapeState="noneSeen";
+		}
+	}
+}
+
